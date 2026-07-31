@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+.pytest_cache/
+.env
+inventory.db
+*.pyc
+desktop.ini
