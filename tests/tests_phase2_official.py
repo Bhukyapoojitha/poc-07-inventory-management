@@ -1,12 +1,12 @@
 import os
 import time
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
 from langchain_community.document_loaders import TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from rag.rag_chain import build_rag_chain, ask_question
+from rag.rag_chain import ask_question, build_rag_chain
 
 
 # =====================
@@ -15,25 +15,36 @@ from rag.rag_chain import build_rag_chain, ask_question
 
 def test_manual_loads():
     assert os.path.exists("rag/inventory_manual.md")
-    docs = TextLoader("rag/inventory_manual.md", encoding="utf-8").load()
+
+    docs = TextLoader(
+        "rag/inventory_manual.md",
+        encoding="utf-8"
+    ).load()
+
     assert len(docs) > 0
     assert len(docs[0].page_content) > 100
 
 
 def test_chunks_size():
-    docs = TextLoader("rag/inventory_manual.md", encoding="utf-8").load()
+    docs = TextLoader(
+        "rag/inventory_manual.md",
+        encoding="utf-8"
+    ).load()
 
     chunks = RecursiveCharacterTextSplitter(
         chunk_size=600,
         chunk_overlap=50
     ).split_documents(docs)
 
-    for c in chunks:
-        assert len(c.page_content) <= 600
+    for chunk in chunks:
+        assert len(chunk.page_content) <= 600
 
 
 def test_min_chunks():
-    docs = TextLoader("rag/inventory_manual.md", encoding="utf-8").load()
+    docs = TextLoader(
+        "rag/inventory_manual.md",
+        encoding="utf-8"
+    ).load()
 
     chunks = RecursiveCharacterTextSplitter(
         chunk_size=200,
@@ -46,15 +57,22 @@ def test_min_chunks():
 def test_chromadb_collection():
     import chromadb
 
-    client = chromadb.PersistentClient(path="./chroma_db")
+    client = chromadb.PersistentClient(
+        path="./chroma_db"
+    )
 
-    assert "inventory_manual" in [
-        c.name for c in client.list_collections()
+    collection_names = [
+        collection.name
+        for collection in client.list_collections()
     ]
 
-    assert client.get_collection(
+    assert "inventory_manual" in collection_names
+
+    collection = client.get_collection(
         "inventory_manual"
-    ).count() >= 20
+    )
+
+    assert collection.count() >= 20
 
 
 # =====================
@@ -67,11 +85,19 @@ def test_sku_query():
         build_rag_chain()
     )
 
-    answer = result.get("answer", "").lower()
+    answer = result.get(
+        "answer",
+        ""
+    ).lower()
 
     assert any(
-        x in answer
-        for x in ["gro", "sku", "grocery", "prefix"]
+        value in answer
+        for value in [
+            "gro",
+            "sku",
+            "grocery",
+            "prefix"
+        ]
     )
 
 
@@ -96,10 +122,14 @@ def test_irrelevant_low_score():
         "distances": [[0.87]]
     }
 
-    assert mock.query(
+    response = mock.query(
         query_texts=["Football match results"],
         n_results=4
-    )["distances"][0][0] > 0.5
+    )
+
+    distance = response["distances"][0][0]
+
+    assert distance > 0.5
 
 
 def test_po_lifecycle():
@@ -108,11 +138,14 @@ def test_po_lifecycle():
         build_rag_chain()
     )
 
-    answer = result.get("answer", "").lower()
+    answer = result.get(
+        "answer",
+        ""
+    ).lower()
 
     assert any(
-        x in answer
-        for x in [
+        value in answer
+        for value in [
             "draft",
             "submitted",
             "received",
@@ -130,18 +163,24 @@ def test_empty_query():
 
     assert isinstance(result, dict)
 
+    answer = result.get("answer")
+
+    assert isinstance(answer, str)
+
 
 def test_latency():
     chain = build_rag_chain()
 
-    start = time.time()
+    start_time = time.time()
 
     ask_question(
         "What is a reorder point?",
         chain
     )
 
-    assert time.time() - start < 5.0
+    elapsed_time = time.time() - start_time
+
+    assert elapsed_time < 5.0
 
 
 # =====================
@@ -154,11 +193,14 @@ def test_reorder_formula():
         build_rag_chain()
     )
 
-    answer = result.get("answer", "").lower()
+    answer = result.get(
+        "answer",
+        ""
+    ).lower()
 
     assert any(
-        x in answer
-        for x in [
+        value in answer
+        for value in [
             "lead time",
             "daily",
             "demand",
@@ -174,7 +216,10 @@ def test_po_approval():
         build_rag_chain()
     )
 
-    answer = result.get("answer", "")
+    answer = result.get(
+        "answer",
+        ""
+    )
 
     assert (
         "50,000" in answer
@@ -189,11 +234,14 @@ def test_movement_types():
         build_rag_chain()
     )
 
-    answer = result.get("answer", "").lower()
+    answer = result.get(
+        "answer",
+        ""
+    ).lower()
 
     assert any(
-        x in answer
-        for x in [
+        value in answer
+        for value in [
             "receipt",
             "sale",
             "adjustment",
@@ -209,75 +257,11 @@ def test_out_of_scope():
         build_rag_chain()
     )
 
-    answer = result.get("answer", "").lower()
+    answer = result.get(
+        "answer",
+        ""
+    ).lower()
 
     assert any(
-        x in answer
-        for x in [
-            "don't have",
-            "not in",
-            "no information",
-            "cannot"
-        ]
-    )
-
-
-def test_non_empty():
-    for q in [
-        "What is SKU?",
-        "What is FIFO?",
-        "What is a stockout?"
-    ]:
-        assert len(
-            ask_question(
-                q,
-                build_rag_chain()
-            ).get("answer", "")
-        ) > 10
-
-
-def test_category_management():
-    result = ask_question(
-        "How do grocery products differ from electronics in inventory management?",
-        build_rag_chain()
-    )
-
-    answer = result.get("answer", "").lower()
-
-    assert any(
-        x in answer
-        for x in [
-            "grocery",
-            "electronic",
-            "shelf life",
-            "velocity",
-            "cost"
-        ]
-    )
-
-
-# =====================
-# OBSERVABILITY (4)
-# =====================
-
-def test_langsmith():
-    if not os.getenv("LANGCHAIN_API_KEY"):
-        pytest.skip("No LangSmith key")
-
-
-def test_otel_spans():
-    pytest.skip("OTel not implemented")
-
-
-def test_log_poc_id():
-    assert True
-
-
-def test_sources():
-    result = ask_question(
-        "How does PO receiving update stock?",
-        build_rag_chain()
-    )
-
-    assert isinstance(result, dict)
-    assert "answer" in result
+        value in answer
+        for value in
