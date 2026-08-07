@@ -1,7 +1,6 @@
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
+from typing import Annotated
 
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -10,12 +9,10 @@ from app.models import (
     StockLevel,
     StockMovement
 )
-
 from app.schemas.product_schema import (
     ProductCreate,
     StockUpdate
 )
-
 from app.services.inventory_service import (
     generate_sku,
     check_stock_alerts
@@ -26,11 +23,13 @@ router = APIRouter(
     tags=["Products"]
 )
 
+DbSession = Annotated[Session, Depends(get_db)]
+
 
 @router.post("", status_code=201)
 def create_product(
     product: ProductCreate,
-    db: Session = Depends(get_db)
+    db: DbSession
 ):
     sku = generate_sku(
         product.category,
@@ -71,7 +70,7 @@ def create_product(
 @router.get("")
 def get_products(
     category: str = None,
-    db: Session = Depends(get_db)
+    db: DbSession = None
 ):
     query = db.query(Product)
 
@@ -83,10 +82,17 @@ def get_products(
     return query.all()
 
 
-@router.get("/{product_id}")
+@router.get(
+    "/{product_id}",
+    responses={
+        404: {
+            "description": "Product not found"
+        }
+    }
+)
 def get_product(
     product_id: int,
-    db: Session = Depends(get_db)
+    db: DbSession
 ):
     product = (
         db.query(Product)
@@ -120,11 +126,18 @@ def get_product(
     }
 
 
-@router.patch("/{product_id}/stock")
+@router.patch(
+    "/{product_id}/stock",
+    responses={
+        404: {
+            "description": "Product or Stock not found"
+        }
+    }
+)
 def update_stock(
     product_id: int,
     stock_update: StockUpdate,
-    db: Session = Depends(get_db)
+    db: DbSession
 ):
     product = (
         db.query(Product)

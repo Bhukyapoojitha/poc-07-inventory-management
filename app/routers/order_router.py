@@ -1,21 +1,19 @@
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-
 from app.models import (
     PurchaseOrder,
     POItem,
     StockLevel,
     StockMovement
 )
-
 from app.schemas.order_schema import (
     PurchaseOrderCreate
 )
-
 from app.services.inventory_service import (
     generate_po_number
 )
@@ -25,11 +23,13 @@ router = APIRouter(
     tags=["Orders"]
 )
 
+DbSession = Annotated[Session, Depends(get_db)]
+
 
 @router.post("", status_code=201)
 def create_order(
     payload: PurchaseOrderCreate,
-    db: Session = Depends(get_db)
+    db: DbSession
 ):
     po = PurchaseOrder(
         po_number=generate_po_number(db),
@@ -52,7 +52,6 @@ def create_order(
     total = 0
 
     for item in payload.items:
-
         total += (
             item.quantity_ordered *
             item.unit_cost
@@ -81,89 +80,6 @@ def create_order(
 
 @router.get("")
 def get_orders(
-    db: Session = Depends(get_db)
+    db: DbSession
 ):
-    return db.query(PurchaseOrder).all()
-
-
-@router.get("/{order_id}")
-def get_order(
-    order_id: int,
-    db: Session = Depends(get_db)
-):
-    po = (
-        db.query(PurchaseOrder)
-        .filter(
-            PurchaseOrder.id == order_id
-        )
-        .first()
-    )
-
-    if not po:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Order not found"
-        )
-
-    return po
-
-
-@router.patch("/{order_id}/receive")
-def receive_order(
-    order_id: int,
-    db: Session = Depends(get_db)
-):
-    po = (
-        db.query(PurchaseOrder)
-        .filter(
-            PurchaseOrder.id == order_id
-        )
-        .first()
-    )
-
-    if not po:
-        raise HTTPException(
-            status_code=404,
-            detail="Purchase Order not found"
-        )
-
-    for item in po.items:
-
-        stock = (
-            db.query(StockLevel)
-            .filter(
-                StockLevel.product_id ==
-                item.product_id
-            )
-            .first()
-        )
-
-        if stock:
-
-            stock.quantity_on_hand += (
-                item.quantity_ordered
-            )
-
-            movement = StockMovement(
-                product_id=item.product_id,
-                movement_type="receipt",
-                quantity=item.quantity_ordered,
-                reference_number=po.po_number,
-                notes="PO Receipt"
-            )
-
-            db.add(movement)
-
-            item.quantity_received = (
-                item.quantity_ordered
-            )
-
-    po.status = "received"
-
-    db.commit()
-
-    return {
-        "message": "PO Received Successfully",
-        "po_number": po.po_number,
-        "status": po.status
-    }
+    

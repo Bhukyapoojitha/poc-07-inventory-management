@@ -1,6 +1,6 @@
-from fastapi import APIRouter
-from fastapi import Depends
+from typing import Annotated
 
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -11,11 +11,13 @@ router = APIRouter(
     tags=["Suppliers"]
 )
 
+DbSession = Annotated[Session, Depends(get_db)]
+
 
 @router.get("/{supplier_id}/catalog")
 def supplier_catalog(
     supplier_id: int,
-    db: Session = Depends(get_db)
+    db: DbSession
 ):
     products = (
         db.query(Product)

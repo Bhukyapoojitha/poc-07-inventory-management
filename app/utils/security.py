@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 from passlib.context import CryptContext
@@ -34,7 +34,7 @@ def create_access_token(
     to_encode = data.copy()
 
     expire = (
-        datetime.utcnow()
+        datetime.now(timezone.utc)
         + timedelta(minutes=expires_minutes)
     )
 

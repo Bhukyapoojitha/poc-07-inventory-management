@@ -1,6 +1,6 @@
-from fastapi import APIRouter
-from fastapi import Depends
+from typing import Annotated
 
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -11,15 +11,17 @@ router = APIRouter(
     tags=["Stock"]
 )
 
+DbSession = Annotated[Session, Depends(get_db)]
+
 
 @router.get("/low-alerts")
 def low_alerts(
-    db: Session = Depends(get_db)
+    db: DbSession
 ):
     alerts = (
         db.query(StockAlert)
         .filter(
-            StockAlert.is_resolved == False
+            StockAlert.is_resolved.is_(False)
         )
         .all()
     )
