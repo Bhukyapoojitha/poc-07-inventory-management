@@ -1,13 +1,4 @@
-from fastapi import APIRouter
-from fastapi import Depends
-
-from sqlalchemy.orm import Session
-
-from app.database import get_db
-from app.models import (
-    Product,
-    PurchaseOrder,
-    StockAlerfrom typing import Annotated
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -25,7 +16,10 @@ router = APIRouter(
     tags=["Dashboard"]
 )
 
-DbSession = Annotated[Session, Depends(get_db)]
+DbSession = Annotated[
+    Session,
+    Depends(get_db)
+]
 
 
 @router.get("")
@@ -34,7 +28,10 @@ def dashboard(
 ):
     total_stock_value = 0
 
-    products = db.query(Product).all()
+    products = (
+        db.query(Product)
+        .all()
+    )
 
     for product in products:
 
@@ -53,95 +50,36 @@ def dashboard(
             )
 
     return {
-        "total_products":
-            db.query(Product).count(),
+        "total_products": (
+            db.query(Product)
+            .count()
+        ),
 
-        "low_stock_count":
+        "low_stock_count": (
             db.query(StockAlert)
             .filter(
                 StockAlert.alert_type == "low_stock",
                 StockAlert.is_resolved.is_(False)
             )
-            .count(),
+            .count()
+        ),
 
-        "out_of_stock_count":
+        "out_of_stock_count": (
             db.query(StockAlert)
             .filter(
                 StockAlert.alert_type == "out_of_stock",
                 StockAlert.is_resolved.is_(False)
             )
-            .count(),
+            .count()
+        ),
 
-        "open_po_count":
+        "open_po_count": (
             db.query(PurchaseOrder)
             .filter(
                 PurchaseOrder.status != "received"
             )
-            .count(),
+            .count()
+        ),
 
-        "total_stock_value":
-            total_stock_value
-    }t,
-    StockLevel
-)
-
-router = APIRouter(
-    prefix="/api/v1/dashboard",
-    tags=["Dashboard"]
-)
-
-
-@router.get("")
-def dashboard(
-    db: Session = Depends(get_db)
-):
-    total_stock_value = 0
-
-    products = db.query(Product).all()
-
-    for product in products:
-
-        stock = (
-            db.query(StockLevel)
-            .filter(
-                StockLevel.product_id == product.id
-            )
-            .first()
-        )
-
-        if stock:
-            total_stock_value += (
-                stock.quantity_on_hand *
-                product.cost_price
-            )
-
-    return {
-        "total_products":
-            db.query(Product).count(),
-
-        "low_stock_count":
-            db.query(StockAlert)
-            .filter(
-                StockAlert.alert_type == "low_stock",
-                StockAlert.is_resolved == False
-            )
-            .count(),
-
-        "out_of_stock_count":
-            db.query(StockAlert)
-            .filter(
-                StockAlert.alert_type == "out_of_stock",
-                StockAlert.is_resolved == False
-            )
-            .count(),
-
-        "open_po_count":
-            db.query(PurchaseOrder)
-            .filter(
-                PurchaseOrder.status != "received"
-            )
-            .count(),
-
-        "total_stock_value":
-            total_stock_value
+        "total_stock_value": total_stock_value
     }
