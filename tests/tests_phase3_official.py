@@ -423,21 +423,12 @@ def test_ambiguous_no_crash():
             get_low_stock_alerts
         )
 
-        try:
-            result = (
-                get_low_stock_alerts
-                .invoke("")
-            )
+        result = get_low_stock_alerts.invoke("")
 
-            assert isinstance(
-                result,
-                str
-            )
-
-        except Exception as exc:
-            pytest.fail(
-                f"Raised: {exc}"
-            )
+        assert isinstance(
+            result,
+            str
+        )
 
 
 def test_langsmith_trace():
